@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Social Analytics Infographic</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1226; --panel:#1a1f3d; --panel2:#222a52; --ink:#eef1ff;
+    --muted:#9aa3d4; --line:#2c3566; --accent:#6c8cff; --accent2:#37e0c4;
+    --good:#37e0c4; --warn:#ffb454;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,#1b2456 0%,var(--bg) 55%); color:var(--ink);
+  }
+  a{color:var(--accent)}
+  header{padding:28px 22px 10px;max-width:1200px;margin:0 auto}
+  h1{margin:0;font-size:26px;letter-spacing:.3px}
+  .sub{color:var(--muted);margin-top:6px;font-size:13px}
+  .controls{
+    position:sticky;top:0;z-index:20;background:rgba(15,18,38,.86);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  .controls-inner{max-width:1200px;margin:0 auto;padding:12px 22px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+  .ctrl{display:flex;flex-direction:column;gap:4px}
+  .ctrl label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  select,input[type=text]{
+    background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:9px;
+    padding:8px 10px;font-size:13px;min-width:150px;outline:none;
+  }
+  select:focus,input:focus{border-color:var(--accent)}
+  .spacer{flex:1}
+  .btn{background:var(--accent);border:none;color:#0b0e1f;font-weight:600;border-radius:9px;padding:9px 14px;cursor:pointer;font-size:13px}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  main{max-width:1200px;margin:0 auto;padding:18px 22px 60px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin:10px 0 8px}
+  .kpi{background:linear-gradient(160deg,var(--panel) 0%,var(--panel2) 100%);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .kpi .v{font-size:26px;font-weight:700;letter-spacing:.2px}
+  .kpi .l{color:var(--muted);font-size:12px;margin-top:4px}
+  .kpi .h{font-size:11px;color:var(--accent2);margin-top:8px}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;margin-top:6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 16px 10px}
+  .card h2{margin:0 0 2px;font-size:15px}
+  .card .note{color:var(--muted);font-size:11px;margin:0 0 10px}
+  .col-12{grid-column:span 12}.col-8{grid-column:span 8}.col-6{grid-column:span 6}.col-4{grid-column:span 4}
+  @media(max-width:900px){.col-8,.col-6,.col-4{grid-column:span 12}}
+  .chart-wrap{position:relative;height:300px}
+  .chart-wrap.tall{height:420px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child,th.l,td.l{text-align:left}
+  thead th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:600;cursor:pointer;user-select:none}
+  tbody tr:hover{background:var(--panel2)}
+  .scroll{max-height:430px;overflow:auto;border-radius:10px;border:1px solid var(--line)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:11px;color:var(--muted)}
+  .foot{color:var(--muted);font-size:12px;margin-top:26px;text-align:center}
+  .empty{color:var(--muted);font-size:13px;padding:30px 0;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const PAYLOAD = /*__DATA__*/null;
+</script>
+<script>
+(function(){
+  "use strict";
+  const DATA = PAYLOAD.records;
+  const META = PAYLOAD.meta;
+
+  // ---- helpers --------------------------------------------------------------
+  const MONTH_RE = /^\d{4}-\d{2}$/;
+  const monthKey = t => MONTH_RE.test(t) ? t : "2026-06"; // weekly captures fall in Jun 2026
+  const monthlyPeriods = [...new Set(META.periods.filter(p=>MONTH_RE.test(p)))].sort();
+
+  const fmtInt = n => {
+    if(n===null||n===undefined||isNaN(n)) return "—";
+    const a=Math.abs(n);
+    if(a>=1e9) return (n/1e9).toFixed(a>=1e10?0:1)+"B";
+    if(a>=1e6) return (n/1e6).toFixed(a>=1e7?0:1)+"M";
+    if(a>=1e3) return (n/1e3).toFixed(a>=1e4?0:1)+"K";
+    return Math.round(n).toLocaleString();
+  };
+  const fmtFull = n => (n===null||isNaN(n))?"—":Math.round(n).toLocaleString();
+  const fmtPct = x => (x===null||x===undefined||isNaN(x))?"—":(x*100).toFixed(1)+"%";
+  const titleCase = s => s.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+
+  const PLATFORM_COLORS = {
+    X:"#e8eef7", Instagram:"#e1306c", LinkedIn:"#0a66c2", TikTok:"#37e0c4",
+    Facebook:"#4267B2", YouTube:"#ff4d4f", Threads:"#b39ddb", Substack:"#ff7a45"
+  };
+  const PALETTE = ["#6c8cff","#37e0c4","#ffb454","#ff6b9d","#9b8cff","#5ad1ff","#ffd166","#8de969","#ff8fab","#7ce0d3","#c792ea","#f78c6c"];
+  const colorFor = (name,i)=>PLATFORM_COLORS[name]||PALETTE[i%PALETTE.length];
+
+  // metric groups
+  const GENDER = ["gender_male","gender_female","gender_other"];
+  const AGE = ["age_13_17","age_18_24","age_25_34","age_35_44","age_45_54","age_55_64","age_65plus"];
+  const isCountry = m => m.startsWith("country_");
+  const FLOW = ["impressions","views","likes","comments","shares","reposts","engagements","profile_visits"];
+
+  // ---- state ----------------------------------------------------------------
+  const state = {
+    brand:"all", platform:"all",
+    from: monthlyPeriods[0], to: monthlyPeriods[monthlyPeriods.length-1],
+    rawMetric:""
+  };
+
+  const inRange = r => { const mk=monthKey(r.t); return mk>=state.from && mk<=state.to; };
+  const filtered = () => DATA.filter(r =>
+    (state.brand==="all"||r.b===state.brand) &&
+    (state.platform==="all"||r.p===state.platform) &&
+    inRange(r));
+
+  // sum a metric over a record set
+  const sumMetric = (recs,m) => recs.reduce((a,r)=>r.m===m?a+r.v:a,0);
+
+  // latest value of a metric for a given series (brand+platform) within recs
+  function latestVal(recs,b,p,m){
+    let best=null,bk="";
+    for(const r of recs){ if(r.b!==b||r.p!==p||r.m!==m) continue;
+      const k=monthKey(r.t)+"~"+r.t; if(best===null||k>=bk){best=r.v;bk=k;} }
+    return best;
+  }
+  // unique series (brand|platform) present in recs
+  function seriesList(recs){
+    const s=new Set(); recs.forEach(r=>s.add(r.b+"||"+r.p));
+    return [...s].map(k=>{const[b,p]=k.split("||");return{b,p};});
+  }
+
+  // reach for a series = sum impressions, else sum views
+  function seriesReach(recs,b,p){
+    let imp=0,vw=0;
+    for(const r of recs){ if(r.b!==b||r.p!==p) continue;
+      if(r.m==="impressions") imp+=r.v; else if(r.m==="views") vw+=r.v; }
+    return imp>0?imp:vw;
+  }
+
+  // ---- charts registry ------------------------------------------------------
+  const charts={};
+  function draw(id,cfg){
+    if(charts[id]){charts[id].destroy();}
+    const el=document.getElementById(id); if(!el) return;
+    charts[id]=new Chart(el,cfg);
+  }
+  Chart.defaults.color="#9aa3d4";
+  Chart.defaults.borderColor="#2c3566";
+  Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;
+
+  // ---- KPI computation ------------------------------------------------------
+  function computeKpis(recs){
+    const series=seriesList(recs);
+    let followers=0,reach=0;
+    for(const {b,p} of series){
+      const f=latestVal(recs,b,p,"followers_total"); if(f!==null) followers+=f;
+      reach+=seriesReach(recs,b,p);
+    }
+    const likes=sumMetric(recs,"likes"), comments=sumMetric(recs,"comments"),
+          shares=sumMetric(recs,"shares"), views=sumMetric(recs,"views"),
+          reposts=sumMetric(recs,"reposts");
+    const eng=likes+comments+shares;
+    return {followers,reach,eng,er:reach>0?eng/reach:null,likes,views,reposts,
+            seriesCount:series.length};
+  }
+
+  // ---- renderers ------------------------------------------------------------
+  function renderKpis(){
+    const k=computeKpis(filtered());
+    const cards=[
+      ["Followers",fmtInt(k.followers),"latest in range"],
+      ["Reach",fmtInt(k.reach),"impressions · else views"],
+      ["Engagements",fmtInt(k.eng),"likes+comments+shares"],
+      ["Engagement rate",fmtPct(k.er),"eng ÷ reach"],
+      ["Likes",fmtInt(k.likes),""],
+      ["Video views",fmtInt(k.views),""],
+    ];
+    document.getElementById("kpis").innerHTML = cards.map(c=>
+      `<div class="kpi"><div class="v">${c[1]}</div><div class="l">${c[0]}</div>${c[2]?`<div class="h">${c[2]}</div>`:""}</div>`
+    ).join("");
+  }
+
+  function renderTrends(){
+    const recs=filtered();
+    const months=monthlyPeriods.filter(m=>m>=state.from&&m<=state.to);
+    const byMonth=m=>recs.filter(r=>monthKey(r.t)===m);
+    const imp=months.map(m=>sumMetric(byMonth(m),"impressions"));
+    const eng=months.map(m=>{const x=byMonth(m);return sumMetric(x,"likes")+sumMetric(x,"comments")+sumMetric(x,"shares");});
+    // followers carried forward per series
+    const series=seriesList(recs);
+    const last={};
+    const foll=months.map(m=>{
+      let tot=0;
+      for(const {b,p} of series){
+        const recsUpTo=recs.filter(r=>r.b===b&&r.p===p&&monthKey(r.t)<=m&&r.m==="followers_total");
+        if(recsUpTo.length){ recsUpTo.sort((a,c)=>monthKey(a.t)<monthKey(c.t)?-1:1); last[b+p]=recsUpTo[recsUpTo.length-1].v; }
+        if(last[b+p]!==undefined) tot+=last[b+p];
+      }
+      return tot;
+    });
+
+    draw("trendFlow",{
+      type:"bar",
+      data:{labels:months,datasets:[
+        {type:"bar",label:"Impressions",data:imp,backgroundColor:"rgba(108,140,255,.55)",borderRadius:6,yAxisID:"y"},
+        {type:"line",label:"Engagements",data:eng,borderColor:"#37e0c4",backgroundColor:"#37e0c4",tension:.3,yAxisID:"y2",pointRadius:3}
+      ]},
+      options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+        plugins:{legend:{labels:{usePointStyle:true}}},
+        scales:{y:{position:"left",ticks:{callback:v=>fmtInt(v)},title:{display:true,text:"Impressions"}},
+                y2:{position:"right",grid:{drawOnChartArea:false},ticks:{callback:v=>fmtInt(v)},title:{display:true,text:"Engagements"}}}}
+    });
+
+    draw("trendFoll",{
+      type:"line",
+      data:{labels:months,datasets:[
+        {label:"Followers",data:foll,borderColor:"#ffb454",backgroundColor:"rgba(255,180,84,.15)",fill:true,tension:.3,pointRadius:3}
+      ]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{ticks:{callback:v=>fmtInt(v)}}}}
+    });
+  }
+
+  function renderPlatform(){
+    // reach by platform across current brand+range (ignores platform filter to show split)
+    const recs=DATA.filter(r=>(state.brand==="all"||r.b===state.brand)&&inRange(r));
+    const map={};
+    for(const {b,p} of seriesList(recs)){ map[p]=(map[p]||0)+seriesReach(recs,b,p); }
+    const entries=Object.entries(map).filter(e=>e[1]>0).sort((a,c)=>c[1]-a[1]);
+    if(!entries.length){ draw("platformPie",{type:"doughnut",data:{labels:[],datasets:[{data:[]}]},options:{maintainAspectRatio:false}}); return; }
+    draw("platformPie",{
+      type:"doughnut",
+      data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),
+        backgroundColor:entries.map((e,i)=>colorFor(e[0],i)),borderColor:"#1a1f3d",borderWidth:2}]},
+      options:{maintainAspectRatio:false,cutout:"58%",
+        plugins:{legend:{position:"right",labels:{usePointStyle:true,boxWidth:8}},
+          tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtInt(c.parsed)}`}}}}
+    });
+  }
+
+  // ---- BRAND overview tab ----------------------------------------------------
+  let brandSort={key:"reach",dir:-1};
+  function brandRows(){
+    // respects platform filter + range; always all brands for comparison
+    const recs=DATA.filter(r=>(state.platform==="all"||r.p===state.platform)&&inRange(r));
+    const rows=seriesList(recs).map(({b,p})=>{
+      const sub=recs.filter(r=>r.b===b&&r.p===p);
+      const reach=seriesReach(recs,b,p);
+      const likes=sumMetric(sub,"likes"),comments=sumMetric(sub,"comments"),
+            shares=sumMetric(sub,"shares"),reposts=sumMetric(sub,"reposts");
+      const eng=likes+comments+shares;
+      const foll=latestVal(recs,b,p,"followers_total");
+      return {brand:b,platform:p,reach,likes,comments,shares,reposts,
+              er:reach>0?eng/reach:null,followers:foll};
+    });
+    return rows;
+  }
+  function renderBrand(){
+    const rows=brandRows();
+    rows.sort((a,b)=>{
+      const k=brandSort.key; let av=a[k],bv=b[k];
+      if(typeof av==="string"){return av.localeCompare(bv)*brandSort.dir;}
+      av=av==null?-1:av; bv=bv==null?-1:bv; return (av-bv)*brandSort.dir;
+    });
+    const cols=[["brand","Brand","l"],["platform","Platform","l"],["reach","Reach"],
+      ["likes","Likes"],["comments","Comments"],["shares","Shares"],["reposts","Reposts"],
+      ["er","Eng. rate"],["followers","Followers"]];
+    const head=cols.map(c=>`<th class="${c[2]||""}" data-k="${c[0]}">${c[1]}${brandSort.key===c[0]?(brandSort.dir<0?" ▾":" ▴"):""}</th>`).join("");
+    const body=rows.map(r=>`<tr>
+      <td class="l">${r.brand}</td><td class="l"><span class="pill">${r.platform}</span></td>
+      <td>${fmtInt(r.reach)}</td><td>${fmtInt(r.likes)}</td><td>${fmtInt(r.comments)}</td>
+      <td>${fmtInt(r.shares)}</td><td>${fmtInt(r.reposts)}</td>
+      <td>${fmtPct(r.er)}</td><td>${fmtInt(r.followers)}</td></tr>`).join("");
+    document.getElementById("brandTable").innerHTML=
+      `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="9" class="empty">No data</td></tr>`}</tbody></table></div>`;
+    document.querySelectorAll("#brandTable th").forEach(th=>th.onclick=()=>{
+      const k=th.dataset.k; if(brandSort.key===k) brandSort.dir*=-1; else {brandSort.key=k;brandSort.dir=k==="brand"||k==="platform"?1:-1;}
+      renderBrand();
+    });
+
+    // reach per brand (sum platforms)
+    const byBrand={};
+    rows.forEach(r=>{byBrand[r.brand]=(byBrand[r.brand]||0)+(r.reach||0);});
+    const be=Object.entries(byBrand).filter(e=>e[1]>0).sort((a,c)=>c[1]-a[1]);
+    draw("brandReach",{
+      type:"bar",
+      data:{labels:be.map(e=>e[0]),datasets:[{label:"Reach",data:be.map(e=>e[1]),
+        backgroundColor:be.map((e,i)=>colorFor("",i)),borderRadius:6}]},
+      options:{indexAxis:"y",maintainAspectRatio:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>" "+fmtFull(c.parsed.x)}}},
+        scales:{x:{type:"logarithmic",ticks:{callback:v=>fmtInt(v)}}}}
+    });
+  }
+
+  // ---- DEMOGRAPHICS tab ------------------------------------------------------
+  // follower-weighted blend of a metric across the filtered series
+  function blend(recs,metric){
+    let num=0,den=0;
+    for(const {b,p} of seriesList(recs)){
+      const v=latestVal(recs,b,p,metric); if(v===null) continue;
+      let w=latestVal(recs,b,p,"followers_total"); if(w===null||w<=0) w=1;
+      num+=v*w; den+=w;
+    }
+    return den>0?num/den:null;
+  }
+  function renderDemographics(){
+    const recs=filtered();
+
+    // gender
+    const g=GENDER.map(m=>blend(recs,m));
+    const gHas=g.some(x=>x!==null);
+    draw("genderChart",{
+      type:"doughnut",
+      data:{labels:["Male","Female","Other"],datasets:[{data:g.map(x=>x||0),
+        backgroundColor:["#6c8cff","#ff6b9d","#37e0c4"],borderColor:"#1a1f3d",borderWidth:2}]},
+      options:{maintainAspectRatio:false,cutout:"58%",
+        plugins:{legend:{position:"bottom",labels:{usePointStyle:true,boxWidth:8}},
+          tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtPct(c.parsed)}`}}}}
+    });
+    document.getElementById("genderEmpty").style.display=gHas?"none":"block";
+
+    // age
+    const a=AGE.map(m=>blend(recs,m));
+    const aHas=a.some(x=>x!==null);
+    draw("ageChart",{
+      type:"bar",
+      data:{labels:AGE.map(m=>titleCase(m.replace("age_","").replace("plus","+")).replace(/(\d) (\d)/,"$1–$2")),
+        datasets:[{label:"Audience",data:a.map(x=>(x||0)*100),backgroundColor:"#6c8cff",borderRadius:6}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>" "+c.parsed.y.toFixed(1)+"%"}}},
+        scales:{y:{ticks:{callback:v=>v+"%"}}}}
+    });
+    document.getElementById("ageEmpty").style.display=aHas?"none":"block";
+
+    // countries top 10
+    const cset=[...new Set(recs.filter(r=>isCountry(r.m)).map(r=>r.m))];
+    const ce=cset.map(m=>[m,blend(recs,m)]).filter(e=>e[1]!==null&&e[1]>0)
+      .sort((a,b)=>b[1]-a[1]).slice(0,10);
+    draw("countryChart",{
+      type:"bar",
+      data:{labels:ce.map(e=>titleCase(e[0].replace("country_",""))),
+        datasets:[{label:"Audience",data:ce.map(e=>e[1]*100),
+          backgroundColor:ce.map((e,i)=>colorFor("",i)),borderRadius:6}]},
+      options:{indexAxis:"y",maintainAspectRatio:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>" "+c.parsed.x.toFixed(1)+"%"}}},
+        scales:{x:{ticks:{callback:v=>v+"%"}}}}
+    });
+    document.getElementById("countryEmpty").style.display=ce.length?"none":"block";
+  }
+
+  // ---- RAW (MASTER) tab ------------------------------------------------------
+  function renderRaw(){
+    let recs=filtered();
+    const q=state.rawMetric.trim().toLowerCase();
+    if(q) recs=recs.filter(r=>r.m.toLowerCase().includes(q));
+    recs=recs.slice().sort((a,b)=>a.b.localeCompare(b.b)||a.p.localeCompare(b.p)||a.t.localeCompare(b.t)||a.m.localeCompare(b.m));
+    const cap=600, shown=recs.slice(0,cap);
+    const body=shown.map(r=>`<tr><td class="l">${r.b}</td><td class="l"><span class="pill">${r.p}</span></td>
+      <td class="l">${r.t}</td><td class="l">${r.m}</td><td>${r.v%1===0?fmtFull(r.v):r.v}</td><td class="l">${r.s}</td></tr>`).join("");
+    document.getElementById("rawCount").textContent=
+      `${recs.length.toLocaleString()} rows${recs.length>cap?` (showing first ${cap})`:""}`;
+    document.getElementById("rawTable").innerHTML=
+      `<div class="scroll"><table><thead><tr><th class="l">Brand</th><th class="l">Platform</th><th class="l">Period</th><th class="l">Metric</th><th>Value</th><th class="l">Scope</th></tr></thead><tbody>${body||`<tr><td colspan="6" class="empty">No matching rows</td></tr>`}</tbody></table></div>`;
+  }
+
+  // ---- render all -----------------------------------------------------------
+  function renderAll(){ renderKpis(); renderTrends(); renderPlatform(); renderBrand(); renderDemographics(); renderRaw(); }
+
+  // ---- layout ---------------------------------------------------------------
+  function opt(v,label,sel){return `<option value="${v}"${v===sel?" selected":""}>${label}</option>`;}
+  function build(){
+    const brandOpts=`<option value="all">All brands</option>`+META.brands.map(b=>opt(b,b,state.brand)).join("");
+    const platOpts=`<option value="all">All platforms</option>`+META.platforms.map(p=>opt(p,p,state.platform)).join("");
+    const fromOpts=monthlyPeriods.map(m=>opt(m,m,state.from)).join("");
+    const toOpts=monthlyPeriods.map(m=>opt(m,m,state.to)).join("");
+
+    document.getElementById("app").innerHTML=`
+    <header>
+      <h1>Social Media Analytics</h1>
+      <div class="sub">${META.brands.length} brands · ${META.platforms.length} platforms · ${monthlyPeriods[0]} → ${monthlyPeriods[monthlyPeriods.length-1]} · ${META.rowCount.toLocaleString()} data points</div>
+    </header>
+    <div class="controls"><div class="controls-inner">
+      <div class="ctrl"><label>Brand</label><select id="selBrand">${brandOpts}</select></div>
+      <div class="ctrl"><label>Platform</label><select id="selPlat">${platOpts}</select></div>
+      <div class="ctrl"><label>From</label><select id="selFrom">${fromOpts}</select></div>
+      <div class="ctrl"><label>To</label><select id="selTo">${toOpts}</select></div>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="btnReset">Reset</button>
+      <button class="btn" id="btnPrint">Save / Print</button>
+    </div></div>
+
+    <main>
+      <div class="kpis" id="kpis"></div>
+
+      <div class="grid">
+        <div class="card col-8">
+          <h2>Reach & engagement over time</h2>
+          <p class="note">Monthly impressions (bars) and engagements (line) for the current selection.</p>
+          <div class="chart-wrap"><canvas id="trendFlow"></canvas></div>
+        </div>
+        <div class="card col-4">
+          <h2>Reach by platform</h2>
+          <p class="note">Share of reach across platforms.</p>
+          <div class="chart-wrap"><canvas id="platformPie"></canvas></div>
+        </div>
+
+        <div class="card col-8">
+          <h2>Follower growth</h2>
+          <p class="note">Total followers across the selection, carried forward by month.</p>
+          <div class="chart-wrap"><canvas id="trendFoll"></canvas></div>
+        </div>
+        <div class="card col-4">
+          <h2>Audience by gender</h2>
+          <p class="note">Follower-weighted blend.</p>
+          <div class="chart-wrap"><canvas id="genderChart"></canvas></div>
+          <div class="empty" id="genderEmpty" style="display:none">No gender data in selection</div>
+        </div>
+
+        <div class="card col-12">
+          <h2>Brand comparison <span class="pill">Brand tab</span></h2>
+          <p class="note">All brands × platforms in range (respects the platform filter). Click a header to sort.</p>
+          <div class="grid" style="margin-top:0">
+            <div class="col-6"><div id="brandTable"></div></div>
+            <div class="col-6"><div class="chart-wrap tall"><canvas id="brandReach"></canvas></div></div>
+          </div>
+        </div>
+
+        <div class="card col-6">
+          <h2>Audience by age <span class="pill">Demographics tab</span></h2>
+          <p class="note">Follower-weighted blend across the selection.</p>
+          <div class="chart-wrap"><canvas id="ageChart"></canvas></div>
+          <div class="empty" id="ageEmpty" style="display:none">No age data in selection</div>
+        </div>
+        <div class="card col-6">
+          <h2>Top locations <span class="pill">Demographics tab</span></h2>
+          <p class="note">Top 10 countries / cities, follower-weighted.</p>
+          <div class="chart-wrap"><canvas id="countryChart"></canvas></div>
+          <div class="empty" id="countryEmpty" style="display:none">No location data in selection</div>
+        </div>
+
+        <div class="card col-12">
+          <h2>Raw data <span class="pill">Master tab</span></h2>
+          <p class="note">Every fact behind the charts. <span id="rawCount"></span></p>
+          <input type="text" id="rawSearch" placeholder="Filter by metric, e.g. impressions, age_, country_" style="width:320px;margin-bottom:10px" value="${state.rawMetric}">
+          <div id="rawTable"></div>
+        </div>
+      </div>
+
+      <div class="foot">Generated from the <em>analytics_long_v7</em> spreadsheet · open this file in any browser or host it for a shareable link.</div>
+    </main>`;
+
+    document.getElementById("selBrand").onchange=e=>{state.brand=e.target.value;renderAll();};
+    document.getElementById("selPlat").onchange=e=>{state.platform=e.target.value;renderAll();};
+    document.getElementById("selFrom").onchange=e=>{state.from=e.target.value;if(state.from>state.to)state.to=state.from;document.getElementById("selTo").value=state.to;renderAll();};
+    document.getElementById("selTo").onchange=e=>{state.to=e.target.value;if(state.to<state.from)state.from=state.to;document.getElementById("selFrom").value=state.from;renderAll();};
+    document.getElementById("btnReset").onclick=()=>{state.brand="all";state.platform="all";state.from=monthlyPeriods[0];state.to=monthlyPeriods[monthlyPeriods.length-1];state.rawMetric="";build();renderAll();};
+    document.getElementById("btnPrint").onclick=()=>window.print();
+    let to; document.getElementById("rawSearch").oninput=e=>{clearTimeout(to);to=setTimeout(()=>{state.rawMetric=e.target.value;renderRaw();},200);};
+  }
+
+  build();
+  renderAll();
+})();
+</script>
+</body>
+</html>
