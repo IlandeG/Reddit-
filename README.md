@@ -18,7 +18,7 @@ from it live in the browser, so the three spreadsheet views are all covered:
 - **Follower growth** — total followers over time.
 - **Brand comparison** (mirrors the **Brand** tab) — every brand × platform with
   reach, likes, comments, shares, reposts, engagement rate, and followers.
-  `reach = impressions, else views`; `engagement rate = (likes+comments+shares) / reach`.
+  `reach = impressions + views`; `engagement rate = (likes+comments+shares) / reach`.
 - **Demographics** (mirrors the **Demographics** tab) — gender, age, and top
   locations as a follower-weighted blend.
 - **Raw data** (the **Master** tab) — every underlying fact, searchable.

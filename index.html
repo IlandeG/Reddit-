@@ -131,12 +131,12 @@ const PAYLOAD = {"meta":{"brands":["Brightmind History","Dhimmi Diaries","Ella K
     return [...s].map(k=>{const[b,p]=k.split("||");return{b,p};});
   }
 
-  // reach for a series = sum impressions, else sum views
+  // reach for a series = sum impressions + sum views
   function seriesReach(recs,b,p){
-    let imp=0,vw=0;
+    let total=0;
     for(const r of recs){ if(r.b!==b||r.p!==p) continue;
-      if(r.m==="impressions") imp+=r.v; else if(r.m==="views") vw+=r.v; }
-    return imp>0?imp:vw;
+      if(r.m==="impressions"||r.m==="views") total+=r.v; }
+    return total;
   }
 
   // ---- charts registry ------------------------------------------------------
@@ -171,7 +171,7 @@ const PAYLOAD = {"meta":{"brands":["Brightmind History","Dhimmi Diaries","Ella K
     const k=computeKpis(filtered());
     const cards=[
       ["Followers",fmtInt(k.followers),"latest in range"],
-      ["Reach",fmtInt(k.reach),"impressions · else views"],
+      ["Reach",fmtInt(k.reach),"impressions + views"],
       ["Engagements",fmtInt(k.eng),"likes+comments+shares"],
       ["Engagement rate",fmtPct(k.er),"eng ÷ reach"],
       ["Likes",fmtInt(k.likes),""],
@@ -186,7 +186,7 @@ const PAYLOAD = {"meta":{"brands":["Brightmind History","Dhimmi Diaries","Ella K
     const recs=filtered();
     const months=monthlyPeriods.filter(m=>m>=state.from&&m<=state.to);
     const byMonth=m=>recs.filter(r=>monthKey(r.t)===m);
-    const imp=months.map(m=>sumMetric(byMonth(m),"impressions"));
+    const imp=months.map(m=>{const x=byMonth(m);return sumMetric(x,"impressions")+sumMetric(x,"views");});
     const eng=months.map(m=>{const x=byMonth(m);return sumMetric(x,"likes")+sumMetric(x,"comments")+sumMetric(x,"shares");});
     // followers carried forward per series
     const series=seriesList(recs);
@@ -204,12 +204,12 @@ const PAYLOAD = {"meta":{"brands":["Brightmind History","Dhimmi Diaries","Ella K
     draw("trendFlow",{
       type:"bar",
       data:{labels:months,datasets:[
-        {type:"bar",label:"Impressions",data:imp,backgroundColor:"rgba(108,140,255,.55)",borderRadius:6,yAxisID:"y"},
+        {type:"bar",label:"Reach",data:imp,backgroundColor:"rgba(108,140,255,.55)",borderRadius:6,yAxisID:"y"},
         {type:"line",label:"Engagements",data:eng,borderColor:"#37e0c4",backgroundColor:"#37e0c4",tension:.3,yAxisID:"y2",pointRadius:3}
       ]},
       options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
         plugins:{legend:{labels:{usePointStyle:true}}},
-        scales:{y:{position:"left",ticks:{callback:v=>fmtInt(v)},title:{display:true,text:"Impressions"}},
+        scales:{y:{position:"left",ticks:{callback:v=>fmtInt(v)},title:{display:true,text:"Reach"}},
                 y2:{position:"right",grid:{drawOnChartArea:false},ticks:{callback:v=>fmtInt(v)},title:{display:true,text:"Engagements"}}}}
     });
 
@@ -397,7 +397,7 @@ const PAYLOAD = {"meta":{"brands":["Brightmind History","Dhimmi Diaries","Ella K
       <div class="grid">
         <div class="card col-8">
           <h2>Reach & engagement over time</h2>
-          <p class="note">Monthly impressions (bars) and engagements (line) for the current selection.</p>
+          <p class="note">Monthly reach — impressions + views (bars) — and engagements (line) for the current selection.</p>
           <div class="chart-wrap"><canvas id="trendFlow"></canvas></div>
         </div>
         <div class="card col-4">
