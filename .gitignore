@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Keep analytics data and the generated page out of the repo
+index.html
+data/master.csv
